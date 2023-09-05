@@ -70,10 +70,11 @@ func isLinked(node *dag.ProtoNode, name string) bool {
 }
 
 type Finfo struct {
-	Path  string
-	Size  int64
-	Start int64
-	End   int64
+	OldPath string
+	Path    string
+	Size    int64
+	Start   int64
+	End     int64
 }
 
 type fileSlice struct {
@@ -157,7 +158,7 @@ func GenerateCar(ctx context.Context, fileList []Finfo, parentPath string, tmpDi
 	layers = append(layers, &rootNode)
 	previous := []string{""}
 	for _, item := range fileList {
-		if _, err := os.Stat(item.Path); err != nil {
+		if _, err := os.Stat(item.OldPath); err != nil {
 			return nil, "", nil, err
 		}
 		if item.End == 0 {
@@ -165,22 +166,23 @@ func GenerateCar(ctx context.Context, fileList []Finfo, parentPath string, tmpDi
 		}
 		var node ipld.Node
 		var path string
+		// 文件索引中显示的名称
 		path, err = filepath.Rel(filepath.Clean(parentPath), filepath.Clean(item.Path))
-		if tmpDir != "" {
-			tmpPath := filepath.Join(filepath.Clean(tmpDir), path)
-			err = os.MkdirAll(filepath.Dir(tmpPath), 0777)
-			if err != nil {
-				logger.Warn(err)
-				return
-			}
+		if item.Path != "" {
+			//tmpPath := filepath.Join(filepath.Clean(tmpDir), path)
+			//err = os.MkdirAll(filepath.Dir(tmpPath), 0777)
+			//if err != nil {
+			//	logger.Warn(err)
+			//	return
+			//}
 			// copy file
 			var source, destination *os.File
-			source, err = os.Open(item.Path)
+			source, err = os.Open(item.OldPath)
 			if err != nil {
 				return
 			}
 			defer source.Close()
-			destination, err = os.Create(tmpPath)
+			destination, err = os.Create(item.Path)
 			if err != nil {
 				return
 			}
@@ -193,10 +195,12 @@ func GenerateCar(ctx context.Context, fileList []Finfo, parentPath string, tmpDi
 			if err != nil {
 				return
 			}
-			item.Path = tmpPath
+			//item.Path =
 			item.Size = item.End - item.Start
 			item.End = item.Size
 			item.Start = 0
+		} else {
+			item.Path = item.OldPath
 		}
 		node, err = BuildFileNode(ctx, item, dagServ, cidBuilder)
 		if err != nil {
